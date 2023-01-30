@@ -14,11 +14,16 @@ def add_product():
     amount = int(product_amount_entry.get())
     warehouse_name = warehouse_name_entry.get()
 
-    existing_product = session.query(Product).filter_by(name=name).first()
-    if existing_product:
-        existing_product.price = price
-        existing_product.amount = amount
-    else:
+    existing_product = session.query(Product).filter_by(name=name).all()
+    product_exists = False
+    for product in existing_product:
+        if product.warehouse.name == warehouse_name:
+            product_exists = True
+            product.price = price
+            product.amount = amount
+            break
+    
+    if not product_exists:
         new_product = Product(name=name, price=price, amount=amount)
         new_warehouse = Warehouse(name=warehouse_name)
         new_warehouse.products.append(new_product)
@@ -49,8 +54,8 @@ def show_purchases():
     tk.Label(purchases_window, text="Amount", width=10, font=header_font).grid(row=0, column=2, sticky="w")
 
     purchases = session.query(Purchase, Product, Customer)\
-                      .join(Product, Purchase.product_id == Product.id)\
-                      .join(Customer, Purchase.customer_id == Customer.id).all()
+        .join(Product, Purchase.product_id == Product.id)\
+        .join(Customer, Purchase.customer_id == Customer.id).all()
     
     for i, (purchase, product, customer) in enumerate(purchases, 1):
         tk.Label(purchases_window, text=product.name, width=15).grid(row=i, column=0, sticky="w")
@@ -82,25 +87,32 @@ def show_warehouse_info():
 
 def search_product():
     name = product_name_entry.get()
-    product = session.query(Product).filter_by(name=name).first()
-    warehouse = session.query(Warehouse).filter(Warehouse.products.any(Product.name == name)).first()
+    products = session.query(Product).filter_by(name=name).all()
+    warehouses = session.query(Warehouse).filter(Warehouse.products.any(Product.name == name)).all()
     
-    if product:
+    if products:
         purchase_text.config(state='normal')
         purchase_text.delete('1.0', 'end')
-        purchase_text.insert('1.0', f'Product Name: {product.name}\n')
-        purchase_text.insert('2.0', f'Product Price: {product.price}\n')
-        purchase_text.insert('3.0', f'Product Amount: {product.amount}\n')
-        purchase_text.insert('4.0', f'Warehouse Name: {warehouse.name}\n')
+        purchase_text.see("1.0")
+        for i, product in enumerate(products):
+            warehouse = warehouses[i]
+            purchase_text.insert('1.0', f'Product Name: {product.name}\n')
+            purchase_text.insert('2.0', f'Product Price: {product.price}\n')
+            purchase_text.insert('3.0', f'Product Amount: {product.amount}\n')
+            purchase_text.insert('4.0', f'Warehouse Name: {warehouse.name}\n\n')
         purchase_text.config(state='disabled')
     else:
         messagebox.showinfo("Product Not Found", "The product was not found in the database.")
 
 
+
+
+
+
     
 # Create the main window
 root = tk.Tk()
-root.geometry("300x500")
+root.geometry("300x700")
 root.title("Product Database")
 
 bottom_frame = tk.Frame(root)
@@ -127,7 +139,7 @@ warehouse_name_entry.pack()
 # Creating a label and a text widget to display the product information.
 purchase_label = tk.Label(bottom_frame, text="Product Added/Updated")
 purchase_label.pack()
-purchase_text = tk.Text(bottom_frame, height=10, width=30)
+purchase_text = tk.Text(bottom_frame, height=20, width=30)
 purchase_text.pack()
 purchase_text.config(state='disabled')
 
